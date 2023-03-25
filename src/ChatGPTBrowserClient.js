@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import Keyv from 'keyv';
 import { fetchEventSource } from '@waylaidwanderer/fetch-event-source';
 import { ProxyAgent } from 'undici';
+import talk from './poe.js';
 
 export default class ChatGPTBrowserClient {
     constructor(
@@ -84,82 +85,10 @@ export default class ChatGPTBrowserClient {
         // data: {"message": {"id": "UUID", "role": "assistant", "user": null, "create_time": null, "update_time": null, "content": {"content_type": "text", "parts": ["That's alright! If you don't have a specific question or topic in mind, I can suggest some general conversation starters or topics to explore. \n\nFor example, we could talk about your interests, hobbies, or goals. Alternatively, we could discuss current events, pop culture, or science and technology. Is there anything in particular that you're curious about or would like to learn more about?"]}, "end_turn": true, "weight": 1.0, "metadata": {"message_type": "next", "model_slug": "text-davinci-002-render-sha", "finish_details": {"type": "stop", "stop": "<|im_end|>"}}, "recipient": "all"}, "conversation_id": "UUID", "error": null}
         // eslint-disable-next-line no-async-promise-executor
         const response = await new Promise(async (resolve, reject) => {
-            let lastEvent = null;
             try {
-                let done = false;
-                await fetchEventSource(url, {
-                    ...opts,
-                    signal: abortController.signal,
-                    async onopen(openResponse) {
-                        if (openResponse.status === 200) {
-                            return;
-                        }
-                        if (debug) {
-                            console.debug(openResponse);
-                        }
-                        let error;
-                        try {
-                            const body = await openResponse.text();
-                            error = new Error(`Failed to send message. HTTP ${openResponse.status} - ${body}`);
-                            error.status = openResponse.status;
-                            error.json = JSON.parse(body);
-                        } catch {
-                            error = error || new Error(`Failed to send message. HTTP ${openResponse.status}`);
-                        }
-                        throw error;
-                    },
-                    onclose() {
-                        if (debug) {
-                            console.debug('Server closed the connection unexpectedly, returning...');
-                        }
-                        if (!done) {
-                            if (!lastEvent) {
-                                reject(new Error('Server closed the connection unexpectedly. Please make sure you are using a valid access token.'));
-                                return;
-                            }
-                            onProgress('[DONE]');
-                            abortController.abort();
-                            resolve(lastEvent);
-                        }
-                    },
-                    onerror(err) {
-                        if (debug) {
-                            console.debug(err);
-                        }
-                        // rethrow to stop the operation
-                        throw err;
-                    },
-                    onmessage(eventMessage) {
-                        if (debug) {
-                            console.debug(eventMessage);
-                        }
-                        if (!eventMessage.data || eventMessage.event === 'ping') {
-                            return;
-                        }
-                        if (eventMessage.data === '[DONE]') {
-                            onProgress('[DONE]');
-                            abortController.abort();
-                            resolve(lastEvent);
-                            done = true;
-                            return;
-                        }
-                        try {
-                            const data = JSON.parse(eventMessage.data);
-                            // ignore any messages that are not from the assistant
-                            if (data.message?.author?.role !== 'assistant') {
-                                return;
-                            }
-                            const lastMessage = lastEvent ? lastEvent.message.content.parts[0] : '';
-                            const newMessage = data.message.content.parts[0];
-                            // get the difference between the current text and the previous text
-                            const difference = newMessage.substring(lastMessage.length);
-                            lastEvent = data;
-                            onProgress(difference);
-                        } catch (err) {
-                            console.debug(eventMessage.data);
-                            console.error(err);
-                        }
-                    },
+                resolve({
+                    message: await talk(message.message),
+                    conversation_id: Math.random().toString(36).substring(7),
                 });
             } catch (err) {
                 reject(err);
@@ -220,10 +149,10 @@ export default class ChatGPTBrowserClient {
         }
 
         conversationId = result.conversation_id;
-        const reply = result.message.content.parts[0].trim();
+        const reply = result.message;
 
         const replyMessage = {
-            id: result.message.id,
+            id: crypto.randomUUID(),
             parentMessageId: userMessage.id,
             role: 'ChatGPT',
             message: reply,
@@ -243,6 +172,7 @@ export default class ChatGPTBrowserClient {
     }
 
     genTitle(event) {
+        return;
         const { debug } = this.options;
         if (debug) {
             console.log('Generate title: ', event);

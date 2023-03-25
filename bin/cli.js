@@ -9,6 +9,7 @@ import inquirer from 'inquirer';
 import inquirerAutocompletePrompt from 'inquirer-autocomplete-prompt';
 import ChatGPTClient from '../src/ChatGPTClient.js';
 import BingAIClient from '../src/BingAIClient.js';
+import ChatGPTBrowserClient from '../src/ChatGPTBrowserClient.js';
 
 const arg = process.argv.find(_arg => _arg.startsWith('--settings'));
 const path = arg?.split('=')[1] ?? './settings.js';
@@ -75,6 +76,12 @@ const clientToUse = settings.cliOptions?.clientToUse || settings.clientToUse || 
 
 let client;
 switch (clientToUse) {
+    case 'chatgpt-browser':
+        client = new ChatGPTBrowserClient(
+            settings.chatGptBrowserClient,
+            settings.cacheOptions,
+        );
+        break;
     case 'bing':
         client = new BingAIClient({
             ...settings.bingAiClient,
