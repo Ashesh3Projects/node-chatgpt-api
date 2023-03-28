@@ -1,15 +1,19 @@
 import './fetch-polyfill.js';
 import crypto from 'crypto';
 import Keyv from 'keyv';
-import { fetchEventSource } from '@waylaidwanderer/fetch-event-source';
-import { ProxyAgent } from 'undici';
-import talk from './poe.js';
+
+import {
+    ProxyAgent,
+} from 'undici';
+import Poe from './poe.js';
 
 export default class ChatGPTBrowserClient {
     constructor(
         options = {},
         cacheOptions = {},
     ) {
+        console.log("calling init inside ChatGPTBrowserClient", options.accessToken);
+        Poe.init(options.accessToken);
         this.setOptions(options);
 
         cacheOptions.namespace = cacheOptions.namespace || 'chatgpt-browser';
@@ -33,16 +37,18 @@ export default class ChatGPTBrowserClient {
     async postConversation(conversation, onProgress, abortController = null) {
         const {
             action = 'next',
-            conversationId,
-            parentMessageId = crypto.randomUUID(),
-            message,
+                conversationId,
+                parentMessageId = crypto.randomUUID(),
+                message,
         } = conversation;
 
         if (!abortController) {
             abortController = new AbortController();
         }
 
-        const { debug } = this.options;
+        const {
+            debug,
+        } = this.options;
         const url = this.options.reverseProxyUrl || 'https://chat.openai.com/backend-api/conversation';
         const opts = {
             method: 'POST',
@@ -56,16 +62,14 @@ export default class ChatGPTBrowserClient {
             body: JSON.stringify({
                 conversation_id: conversationId,
                 action,
-                messages: message ? [
-                    {
-                        id: message.id,
-                        role: 'user',
-                        content: {
-                            content_type: 'text',
-                            parts: [message.message],
-                        },
+                messages: message ? [{
+                    id: message.id,
+                    role: 'user',
+                    content: {
+                        content_type: 'text',
+                        parts: [message.message],
                     },
-                ] : undefined,
+                }] : undefined,
                 parent_message_id: parentMessageId,
                 model: this.model,
             }),
@@ -87,7 +91,7 @@ export default class ChatGPTBrowserClient {
         const response = await new Promise(async (resolve, reject) => {
             try {
                 resolve({
-                    message: await talk(message.message),
+                    message: await Poe.talk(message.message),
                     conversation_id: Math.random().toString(36).substring(7),
                 });
             } catch (err) {
@@ -110,7 +114,9 @@ export default class ChatGPTBrowserClient {
             this.setOptions(opts.clientOptions);
         }
 
-        let { conversationId } = opts;
+        let {
+            conversationId,
+        } = opts;
         const parentMessageId = opts.parentMessageId || crypto.randomUUID();
 
         let conversation;
@@ -133,8 +139,7 @@ export default class ChatGPTBrowserClient {
 
         conversation.messages.push(userMessage);
 
-        const result = await this.postConversation(
-            {
+        const result = await this.postConversation({
                 conversationId,
                 parentMessageId,
                 message: userMessage,
@@ -173,7 +178,9 @@ export default class ChatGPTBrowserClient {
 
     genTitle(event) {
         return;
-        const { debug } = this.options;
+        const {
+            debug,
+        } = this.options;
         if (debug) {
             console.log('Generate title: ', event);
         }

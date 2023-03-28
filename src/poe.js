@@ -1,31 +1,67 @@
-import ChatBot from './poe/index.js';
+import ChatBot from './poe/poe.cjs';
 
-const bot = new ChatBot();
+class Poe {
+    static state = 'stopped';
 
-const ai = 'chinchilla';
+    static tries = 0;
 
-const isFormkeyAvailable = await bot.getCredentials();
+    static tries2 = 0;
 
-if (!isFormkeyAvailable) {
-    console.log('Formkey and cookie not available');
+    static bot = new ChatBot.ChatBot();
 
-    await bot.setCredentials();
+    static token = '';
 
-    const myEmail = 'poe@ashesh.cloud';
-    const signInStatus = await bot.sendVerifCode(null, myEmail);
+    static async init(accessToken) {
+        if (!accessToken) throw new Error('No access token provided.');
+        for (let i = 0; i <= 5; i++) {
+            try {
+                this.token = accessToken;
+                console.log('[init]poe status: ', this.state);
+                if (this.state !== 'stopped') return 0;
+                console.log('init inside poe.js');
+                this.state = 'starting';
+                await this.bot.start(accessToken);
+                this.state = 'started';
+                this.tries2 = 0;
+                return 0;
+            } catch (e) {
+                this.tries2 += 1;
+                this.init(this.token);
+                if (this.tries2 > 5) {
+                    this.state = 'stopped';
+                    throw new Error('Poe is down. Please try again later.');
+                }
+            }
+        }
+    }
 
-    let loginStatus = 'invalid_verification_code';
-    const otp = 633787;
-    if (signInStatus === 'user_with_confirmed_phone_number_not_found') {
-        loginStatus = await bot.signUpWithVerificationCode(myEmail, null, otp);
-    } else {
-        loginStatus = await bot.signInOrUp(null, myEmail, otp);
+    static async talk(input) {
+        for (let i = 0; i <= 5; i++) {
+            try {
+                console.log('[talk]poe status: ', this.state);
+                if (this.state === 'starting') {
+                    console.log('waiting for poe to start');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return this.talk(input);
+                }
+                if (this.state !== 'started') {
+                    throw new Error('Poe not started');
+                }
+                console.log('talking rn', input);
+                const res = await this.bot.ask(input, true, 'chatgpt');
+                console.log('talking done', res);
+                this.tries = 0;
+                return res;
+            } catch (e) {
+                this.tries += 1;
+                this.init(this.token);
+                if (this.tries > 5) {
+                    this.state = 'stopped';
+                    throw new Error('Poe is down. Please try again later.');
+                }
+            }
+        }
     }
 }
 
-export default async function talk(input) {
-    await bot.clearContext(ai);
-    await bot.sendMsg(ai, input);
-    const response = await bot.getResponse(ai);
-    return response.data;
-}
+export default Poe;
