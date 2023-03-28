@@ -25,6 +25,7 @@ class Poe {
                 this.tries2 = 0;
                 return 0;
             } catch (e) {
+                console.warn(e);
                 this.state = 'stopped';
                 this.tries2 += 1;
                 this.init(this.token);
@@ -54,6 +55,7 @@ class Poe {
                 this.tries = 0;
                 return res;
             } catch (e) {
+                console.warn(e);
                 if (this.tries > 2) {
                     this.state = 'stopped';
                 }
