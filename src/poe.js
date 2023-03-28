@@ -16,7 +16,7 @@ class Poe {
         for (let i = 0; i <= 5; i++) {
             try {
                 this.token = accessToken;
-                console.log('[init]poe status: ', this.state);
+                console.log(this.tries2, '[init]poe status: ', this.state);
                 if (this.state !== 'stopped') return 0;
                 console.log('init inside poe.js');
                 this.state = 'starting';
@@ -25,6 +25,7 @@ class Poe {
                 this.tries2 = 0;
                 return 0;
             } catch (e) {
+                this.state = 'stopped';
                 this.tries2 += 1;
                 this.init(this.token);
                 if (this.tries2 > 5) {
@@ -40,7 +41,7 @@ class Poe {
             try {
                 console.log('[talk]poe status: ', this.state);
                 if (this.state === 'starting') {
-                    console.log('waiting for poe to start');
+                    console.log(this.tries, 'waiting for poe to start');
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     return this.talk(input);
                 }
@@ -53,6 +54,9 @@ class Poe {
                 this.tries = 0;
                 return res;
             } catch (e) {
+                if (this.tries > 2) {
+                    this.state = 'stopped';
+                }
                 this.tries += 1;
                 this.init(this.token);
                 if (this.tries > 5) {
