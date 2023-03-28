@@ -137,7 +137,7 @@ const listenWs = async (ws) => {
     let previousText = '';
     return new Promise((resolve, reject) => {
         const onMessage = function incoming(data) {
-            let jsonData = JSON.parse(data);
+            let jsonData = JSON.parse(data.data);
             if (jsonData.messages && jsonData.messages.length > 0) {
                 const messages = JSON.parse(jsonData.messages[0]);
                 const dataPayload = messages.payload.data;
@@ -154,7 +154,7 @@ const listenWs = async (ws) => {
                     previousText = text;
                 }
                 else {
-                    ws.removeListener('message', onMessage);
+                    ws.removeEventListener('message', onMessage);
                     // return complete result
                     return resolve(text);
                 }
