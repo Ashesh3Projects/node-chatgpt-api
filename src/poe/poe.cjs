@@ -182,7 +182,6 @@ class ChatBot {
         Accept: '*/*',
         Host: 'poe.com',
         'Accept-Encoding': 'gzip, deflate, br',
-        Connection: 'keep-alive',
         Origin: 'https://poe.com',
     };
     chatId = 0;
