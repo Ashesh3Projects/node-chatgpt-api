@@ -89,6 +89,9 @@ const getUpdatedSettings = async (channelName, pbCookie) => {
 };
 
 
+;// CONCATENATED MODULE: external "reconnecting-websocket"
+const external_reconnecting_websocket_namespaceObject = require("reconnecting-websocket");
+var external_reconnecting_websocket_default = /*#__PURE__*/__webpack_require__.n(external_reconnecting_websocket_namespaceObject);
 ;// CONCATENATED MODULE: external "ws"
 const external_ws_namespaceObject = require("ws");
 var external_ws_default = /*#__PURE__*/__webpack_require__.n(external_ws_namespaceObject);
@@ -97,8 +100,9 @@ const external_diff_namespaceObject = require("diff");
 ;// CONCATENATED MODULE: ./src/utils/websocket.ts
 
 
+
 const getSocketUrl = async (credentials) => {
-    const socketUrl = 'wss://' + `tch${Math.floor(Math.random() * 1e6)}` + '.tch.quora.com';
+    const socketUrl = 'wss://' + `tch${credentials.wsHost}` + '.tch.quora.com';
     const appSettings = credentials.app_settings.tchannelData;
     const boxName = appSettings.boxName;
     const minSeq = appSettings.minSeq;
@@ -108,16 +112,22 @@ const getSocketUrl = async (credentials) => {
 };
 const connectWs = async (credentials) => {
     const url = await getSocketUrl(credentials);
-    const ws = new (external_ws_default())(url);
+    const ws = new (external_reconnecting_websocket_default())(url, [], {
+        WebSocket: (external_ws_default()),
+        debug: true,
+        maxRetries: 15,
+    });
     return new Promise((resolve, reject) => {
-        ws.on('open', function open() {
+        ws.addEventListener('open', function open() {
+            console.info('WS: Connected');
             return resolve(ws);
         });
     });
 };
 const disconnectWs = async (ws) => {
     return new Promise((resolve, reject) => {
-        ws.on('close', function close() {
+        ws.addEventListener('close', function close() {
+            console.info('WS: Disconnected');
             return resolve(true);
         });
         ws.close();
@@ -150,7 +160,11 @@ const listenWs = async (ws) => {
                 }
             }
         };
-        ws.on('message', onMessage);
+        ws.addEventListener('message', onMessage);
+        ws.addEventListener('error', function error(e) {
+            console.log('WS: ', e);
+            return reject(e);
+        });
     });
 };
 
@@ -192,6 +206,7 @@ class ChatBot {
         quora_formkey: '',
         quora_cookie: '',
         channel_name: '',
+        wsHost: Math.floor(Math.random() * 1e6).toString(),
         app_settings: {},
     };
     async start(poe_cookie) {
@@ -204,8 +219,17 @@ class ChatBot {
         await this.subscribe();
     }
     async ask(msg, chatBreak, model = 'gpt-4') {
-        await this.subscribe();
+        if (this.ws) {
+            await disconnectWs(this.ws);
+        }
         this.ws = await connectWs(this.credentials);
+        if (this.ws) {
+            this.ws.addEventListener('error', async (e) => {
+                console.log('WS: ', e);
+                await disconnectWs(this.ws);
+                this.ws = await connectWs(this.credentials);
+            });
+        }
         let formatModel;
         if (model === 'gpt-4') {
             formatModel = 'beaver';
@@ -228,7 +252,6 @@ class ChatBot {
         await this.getChatId(formatModel);
         await this.sendMsg(msg, chatBreak);
         let res = await listenWs(this.ws);
-        await disconnectWs(this.ws);
         return res;
     }
     async send(messages, model = 'gpt-4') {
@@ -333,52 +356,6 @@ class ChatBot {
             query: 'mutation subscriptionsMutation(\n  $subscriptions: [AutoSubscriptionQuery!]!\n) {\n  autoSubscribe(subscriptions: $subscriptions) {\n    viewer {\n      id\n    }\n  }\n}\n',
         };
         await this.makeRequest(query);
-    }
-    async signInOrUp(email, verifyCode) {
-        try {
-            const { data: { loginWithVerificationCode: { status: loginStatus }, }, } = await this.makeRequest({
-                query: `${queries.loginMutation}`,
-                variables: {
-                    verificationCode: verifyCode,
-                    emailAddress: email,
-                },
-            });
-            return loginStatus;
-        }
-        catch (e) {
-            throw e;
-        }
-    }
-    async signUpWithVerificationCode(email, verifyCode) {
-        try {
-            const { data: { signupWithVerificationCode: { status: loginStatus }, }, } = await this.makeRequest({
-                query: `${queries.signUpWithVerificationCodeMutation}`,
-                variables: {
-                    verificationCode: verifyCode,
-                    emailAddress: email,
-                },
-            });
-            return loginStatus;
-        }
-        catch (e) {
-            throw e;
-        }
-    }
-    async sendVerifCode(email) {
-        try {
-            // status error case: success, user_with_confirmed_phone_number_not_found, user_with_confirmed_email_not_found
-            let { data: { sendVerificationCode: { status }, }, } = await this.makeRequest({
-                query: `${queries.sendVerificationCodeMutation}`,
-                variables: {
-                    emailAddress: email,
-                    phoneNumber: null,
-                },
-            });
-            return status;
-        }
-        catch (e) {
-            throw e;
-        }
     }
 }
 
