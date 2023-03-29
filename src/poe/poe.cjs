@@ -126,6 +126,10 @@ const connectWs = async (credentials) => {
 };
 const disconnectWs = async (ws) => {
     return new Promise((resolve, reject) => {
+        if (ws.readyState === 3) {
+            console.info('WS disconnectWs: Already disconnected');
+            return resolve(true);
+        }
         ws.addEventListener('close', function close() {
             console.info('WS disconnectWs: Disconnected');
             return resolve(true);
@@ -136,6 +140,10 @@ const disconnectWs = async (ws) => {
 const listenWs = async (ws) => {
     let previousText = '';
     return new Promise((resolve, reject) => {
+        if (ws.readyState !== 1) {
+            console.error('WS listenWs: Not connected');
+            return reject('WS listenWs: Not connected');
+        }
         const onMessage = function incoming(data) {
             let jsonData = JSON.parse(data.data);
             console.log('WS onMessage: ', jsonData);
@@ -272,6 +280,7 @@ class ChatBot {
     async makeRequest(request) {
         const attempts = 5;
         for (let i = 0; i < attempts; i++) {
+            console.log(i, 'Making request: ', request);
             try {
                 this.headers['Content-Length'] = Buffer.byteLength(JSON.stringify(request), 'utf8');
                 this.headers['User-Agent'] =
@@ -281,7 +290,9 @@ class ChatBot {
                     headers: this.headers,
                     body: JSON.stringify(request),
                 });
+                console.log(i, 'Response Status: ', response.status);
                 let text = response.json();
+                console.log(i, 'Response Text: ', text);
                 return text;
             }
             catch (e) {
