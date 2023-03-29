@@ -119,7 +119,7 @@ const connectWs = async (credentials) => {
     });
     return new Promise((resolve, reject) => {
         ws.addEventListener('open', function open() {
-            console.info('WS: Connected');
+            console.info('WS connectWs: Connected');
             return resolve(ws);
         });
     });
@@ -127,7 +127,7 @@ const connectWs = async (credentials) => {
 const disconnectWs = async (ws) => {
     return new Promise((resolve, reject) => {
         ws.addEventListener('close', function close() {
-            console.info('WS: Disconnected');
+            console.info('WS disconnectWs: Disconnected');
             return resolve(true);
         });
         ws.close();
@@ -138,6 +138,7 @@ const listenWs = async (ws) => {
     return new Promise((resolve, reject) => {
         const onMessage = function incoming(data) {
             let jsonData = JSON.parse(data.data);
+            console.log('WS onMessage: ', jsonData);
             if (jsonData.messages && jsonData.messages.length > 0) {
                 const messages = JSON.parse(jsonData.messages[0]);
                 const dataPayload = messages.payload.data;
@@ -162,7 +163,7 @@ const listenWs = async (ws) => {
         };
         ws.addEventListener('message', onMessage);
         ws.addEventListener('error', function error(e) {
-            console.log('WS: ', e);
+            console.log('WS error: ', e);
             return reject(e);
         });
     });
@@ -218,14 +219,15 @@ class ChatBot {
         this.credentials.app_settings.tchannelData.minSeq = minSeq;
         await this.subscribe();
     }
-    async ask(msg, chatBreak, model = 'gpt-4') {
+    async ask(msg, chatBreak, poe_cookie, model = 'gpt-4') {
+        await this.start(poe_cookie);
         if (this.ws) {
             await disconnectWs(this.ws);
         }
         this.ws = await connectWs(this.credentials);
         if (this.ws) {
             this.ws.addEventListener('error', async (e) => {
-                console.log('WS: ', e);
+                console.log('WS error: ', e);
                 await disconnectWs(this.ws);
                 this.ws = await connectWs(this.credentials);
             });
@@ -254,7 +256,7 @@ class ChatBot {
         let res = await listenWs(this.ws);
         return res;
     }
-    async send(messages, model = 'gpt-4') {
+    async send(messages, poe_cookie, model = 'gpt-4') {
         var prompt = '';
         for (var i = 0; i < messages.length; i++) {
             if (i == messages.length - 1) {
@@ -264,7 +266,7 @@ class ChatBot {
                 prompt += `${messages[i].role}: ${messages[i].content}`;
             }
         }
-        var answer = await this.ask(prompt, model);
+        var answer = await this.ask(prompt, poe_cookie, model);
         return answer;
     }
     async makeRequest(request) {
