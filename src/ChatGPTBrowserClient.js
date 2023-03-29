@@ -12,8 +12,6 @@ export default class ChatGPTBrowserClient {
         options = {},
         cacheOptions = {},
     ) {
-        console.log("calling init inside ChatGPTBrowserClient", options.accessToken);
-        Poe.init(options.accessToken);
         this.setOptions(options);
 
         cacheOptions.namespace = cacheOptions.namespace || 'chatgpt-browser';
@@ -91,7 +89,7 @@ export default class ChatGPTBrowserClient {
         const response = await new Promise(async (resolve, reject) => {
             try {
                 resolve({
-                    message: await Poe.talk(message.message),
+                    message: await Poe.talk(message.message, this.accessToken),
                     conversation_id: Math.random().toString(36).substring(7),
                 });
             } catch (err) {
